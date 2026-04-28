@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amber Content Engine</title>
+    <style>
+        :root { --bg: #0f1117; --card: #161b22; --border: #30363d; --text: #e1e4e8; --dim: #8b949e; --blue: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .c { max-width: 860px; margin: 0 auto; padding: 28px 20px; }
+        h1 { font-size: 24px; font-weight: 700; color: #fff; }
+        .sub { color: var(--dim); font-size: 12px; margin-bottom: 24px; }
+
+        /* Toast */
+        .toasts { position: fixed; top: 16px; right: 16px; z-index: 999; display: flex; flex-direction: column; gap: 6px; }
+        .toast { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; animation: slideIn .3s ease; max-width: 380px; }
+        .toast-s { background: #1a3a2a; color: var(--green); border: 1px solid #2a5a3a; }
+        .toast-e { background: #3d1f1f; color: var(--red); border: 1px solid #5a2a2a; }
+        .toast-i { background: #1a2a3d; color: var(--blue); border: 1px solid #2a3a5a; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Status */
+        .status { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .status-left span { display: block; }
+        .status-cycle { font-size: 13px; font-weight: 600; }
+        .status-label { font-size: 11px; color: var(--dim); }
+        .badge { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .b-idle { background: #30363d; color: var(--dim); }
+        .b-run { background: #1f3a1f; color: var(--green); animation: pulse 2s infinite; }
+        .b-fail { background: #3d1f1f; color: var(--red); }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.6; } }
+
+        /* Progress */
+        .prog { background: #1a2a3d; border: 1px solid #2a3a5a; border-radius: 8px; padding: 9px 14px; margin-bottom: 14px; font-size: 12px; color: var(--blue); display: none; align-items: center; gap: 8px; }
+        .prog.on { display: flex; }
+        .spin { width: 14px; height: 14px; border: 2px solid #58a6ff33; border-top-color: var(--blue); border-radius: 50%; animation: sp .7s linear infinite; flex-shrink: 0; }
+        @keyframes sp { to { transform: rotate(360deg); } }
+
+        /* Stats */
+        .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 16px; }
+        .st { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 6px; text-align: center; }
+        .st-n { font-size: 22px; font-weight: 700; color: #fff; }
+        .st-l { font-size: 10px; color: var(--dim); margin-top: 1px; }
+
+        /* Link */
+        .link { display: block; padding: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; text-align: center; color: var(--blue); text-decoration: none; font-size: 13px; margin-bottom: 18px; transition: .2s; }
+        .link:hover { border-color: var(--blue); }
+
+        /* Section */
+        .sec { margin-bottom: 22px; }
+        .sec-h { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .sec-n { background: #21262d; color: var(--dim); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+        .sec-t { font-size: 14px; font-weight: 600; color: #c9d1d9; }
+        .sec-d { font-size: 11px; color: #6e7681; margin-bottom: 10px; margin-left: 30px; line-height: 1.5; }
+
+        /* Approval */
+        .approval { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+        .approval-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .approval-title { font-size: 13px; font-weight: 600; }
+        .refresh { background: none; border: 1px solid var(--border); color: var(--dim); padding: 3px 10px; border-radius: 6px; font-size: 10px; cursor: pointer; }
+        .refresh:hover { border-color: var(--blue); color: var(--blue); }
+        .tag-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+        .tag { font-size: 11px; color: var(--dim); }
+        .tag b { color: var(--text); }
+        .bar-bg { background: #21262d; border-radius: 3px; height: 5px; width: 120px; display: inline-block; vertical-align: middle; margin-left: 6px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width .4s; }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: .15s; background: #21262d; color: #c9d1d9; width: 100%; }
+        .btn:hover:not(:disabled) { background: #30363d; border-color: #484f58; }
+        .btn:disabled { opacity: .3; cursor: not-allowed; }
+        .btn-p { background: #238636; border-color: #2ea043; color: #fff; }
+        .btn-p:hover:not(:disabled) { background: #2ea043; }
+        .btn-d { background: #b62324; border-color: #da3633; color: #fff; }
+        .btn-d:hover:not(:disabled) { background: #da3633; }
+        .btn-row { display: flex; gap: 8px; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        /* Warning */
+        .warn { background: #2d2200; border: 1px solid #5a4400; border-radius: 8px; padding: 8px 14px; font-size: 11px; color: var(--yellow); margin-bottom: 10px; display: none; }
+        .warn.on { display: block; }
+
+        /* Log */
+        .log { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-top: 18px; max-height: 140px; overflow-y: auto; font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; line-height: 1.7; }
+        .log div { color: var(--dim); }
+        .log .e { color: var(--red); } .log .s { color: var(--green); } .log .i { color: var(--blue); }
+
+        hr { border: none; border-top: 1px solid #21262d; margin: 18px 0; }
+        .foot { text-align: center; color: #484f58; font-size: 10px; margin-top: 28px; }
+
+        @media (max-width: 600px) { .stats { grid-template-columns: repeat(3, 1fr); } .btn-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="toasts" id="toasts"></div>
+<div class="c">
+    <h1>Amber Content Engine</h1>
+    <p class="sub">B2B Research Agent &middot; gpt-4o &middot; UK &middot; USA &middot; AU &middot; CA &middot; EU</p>
+
+    <div class="status">
+        <div class="status-left">
+            <span class="status-label">Cycle</span>
+            <span class="status-cycle" id="cyc">--</span>
+        </div>
+        <span class="badge b-idle" id="badge">Idle</span>
+    </div>
+
+    <div class="prog" id="prog"><div class="spin"></div><span id="prog-t">Working...</span></div>
+
+    <div class="stats">
+        <div class="st"><div class="st-n" id="n-sig">0</div><div class="st-l">Signals</div></div>
+        <div class="st"><div class="st-n" id="n-rank">0</div><div class="st-l">Ranked</div></div>
+        <div class="st"><div class="st-n" id="n-news">0</div><div class="st-l">Newsroom</div></div>
+        <div class="st"><div class="st-n" id="n-li">0</div><div class="st-l">LinkedIn</div></div>
+        <div class="st"><div class="st-n" id="n-nl">0</div><div class="st-l">Newsletter</div></div>
+    </div>
+
+    <a class="link" id="sheet" href="#" target="_blank">Open Google Sheet &mdash; review, approve & tag topics</a>
+
+    <!-- Cycle Info -->
+    <div style="background:#1a2a3d;border:1px solid #2a3a5a;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:var(--blue);">
+        <b>📦 Cycle Management:</b> Each new cycle automatically archives previous data to Archive tabs. 
+        Your history is preserved in: Archive - Signals, Archive - Ranked Topics, Archive - Newsroom Blog.
+    </div>
+
+    <!-- Phase 1 -->
+    <div class="sec">
+        <div class="sec-h"><div class="sec-n">1</div><div class="sec-t">Scrape & Rank</div></div>
+        <p class="sec-d">Archives previous cycle. Scrapes signals, ranks 7-12 topics per region. <b>Takes 5-15 min.</b></p>
+        <div class="warn on" style="background:#2d2200;border:1px solid #5a4400;margin-bottom:10px;">
+            ⚠️ Starting a new cycle will archive current data to Archive tabs. Previous cycle data will be preserved.
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-p" id="b-start" onclick="phase1()" style="flex:3">Start New Cycle</button>
+            <button class="btn btn-d" id="b-stop" onclick="stop()" style="flex:1" disabled>Stop</button>
+        </div>
+    </div>
+    <hr>
+
+    <!-- Phase 2: Review -->
+    <div class="sec">
+        <div class="sec-h"><div class="sec-n">2</div><div class="sec-t">Review & Tag Topics</div></div>
+        <p class="sec-d">
+            Open the sheet. In the <b>Ranked Topics</b> tab, for each topic:<br>
+            &bull; Set <b>decision</b> to Approve or Reject<br>
+            &bull; Set <b>channels</b>: which content types (Newsroom, LinkedIn, Blog, Newsletter)<br>
+            &bull; If LinkedIn &rarr; pick <b>linkedin_voice</b> (Amber Brand / Madhur / Jools)<br>
+            &bull; If Blog &rarr; pick <b>blog_lens</b> (Supply / University / HEA)
+        </p>
+        <div class="approval">
+            <div class="approval-head">
+                <span class="approval-title">Review Status</span>
+                <button class="refresh" onclick="loadApprovals()">Refresh</button>
+            </div>
+            <div>
+                <span class="tag"><b id="a-app">0</b>/<b id="a-tot">0</b> approved</span>
+                <div class="bar-bg"><div class="bar-fill" id="a-bar" style="width:0"></div></div>
+            </div>
+            <div class="tag-row">
+                <span class="tag">Newsroom: <b id="t-news">0</b></span>
+                <span class="tag">LinkedIn: <b id="t-li">0</b></span>
+                <span class="tag">Blog: <b id="t-blog">0</b></span>
+                <span class="tag">Newsletter: <b id="t-nl">0</b></span>
+            </div>
+        </div>
+    </div>
+    <hr>
+
+    <!-- Phase 3: Generate -->
+    <div class="sec">
+        <div class="sec-h"><div class="sec-n">3</div><div class="sec-t">Generate Content</div></div>
+        <p class="sec-d">Each button reads only topics tagged for that channel. Run Newsroom first if you want Newsletter.</p>
+        <div class="warn" id="warn">No topics approved or tagged yet. Open the sheet first.</div>
+        <div class="btn-grid">
+            <button class="btn" id="b-news" onclick="gen('newsroom')" title="⏱️ ~2-3 min">Newsroom Blog</button>
+            <button class="btn" id="b-li" onclick="gen('linkedin')" title="⏱️ ~3-5 min">LinkedIn Posts</button>
+            <button class="btn" id="b-blog" onclick="gen('blogs')" title="⏱️ ~2-4 min">Blog Posts</button>
+            <button class="btn" id="b-nl" onclick="gen('newsletter')" title="⏱️ ~1-2 min">Newsletter</button>
+        </div>
+        <p style="font-size:10px;color:var(--dim);margin-top:8px;">💡 Tip: You can close this page while generation runs. Refresh to check progress.</p>
+    </div>
+
+    <div class="log" id="log"><div class="i">Ready.</div></div>
+    <div class="foot">Amber Content Engine v0.3</div>
+</div>
+
+<script>
+const A='/api/ui';let poll=null,approvals=null;
+
+function toast(m,t='i'){const c=document.getElementById('toasts'),d=document.createElement('div');d.className='toast toast-'+t;d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),5000);}
+function log(m,t=''){const l=document.getElementById('log'),time=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});l.innerHTML+=`<div class="${t}">[${time}] ${m}</div>`;l.scrollTop=l.scrollHeight;}
+
+function ui(d){
+    document.getElementById('cyc').textContent=d.cycle_id||'--';
+    document.getElementById('n-sig').textContent=d.signals;
+    document.getElementById('n-rank').textContent=d.ranked;
+    document.getElementById('n-news').textContent=d.newsroom_items;
+    document.getElementById('n-li').textContent=d.linkedin_drafts;
+    document.getElementById('n-nl').textContent=d.newsletter;
+    if(d.sheet_url)document.getElementById('sheet').href=d.sheet_url;
+    const b=document.getElementById('badge'),r=!!d.running_task;
+    b.textContent=r?'Running':d.status==='failed'?'Failed':'Idle';
+    b.className='badge '+(r?'b-run':d.status==='failed'?'b-fail':'b-idle');
+    const p=document.getElementById('prog');
+    if(d.step){p.classList.add('on');document.getElementById('prog-t').textContent=d.step;}else{p.classList.remove('on');}
+    document.getElementById('b-start').disabled=r;
+    document.getElementById('b-stop').disabled=!r;
+    ['b-news','b-li','b-blog','b-nl'].forEach(id=>document.getElementById(id).disabled=r);
+}
+
+async function stat(){try{const r=await fetch(A+'/status');return await r.json();}catch(e){return null;}}
+async function loadApprovals(){
+    try{
+        const r=await fetch(A+'/approvals'),d=await r.json();approvals=d;
+        document.getElementById('a-app').textContent=d.approved;
+        document.getElementById('a-tot').textContent=d.total;
+        const pct=d.total?Math.round(d.approved/d.total*100):0;
+        document.getElementById('a-bar').style.width=pct+'%';
+        document.getElementById('t-news').textContent=d.newsroom_tagged;
+        document.getElementById('t-li').textContent=d.linkedin_tagged;
+        document.getElementById('t-blog').textContent=d.blog_tagged;
+        document.getElementById('t-nl').textContent=d.newsletter_tagged;
+        const w=document.getElementById('warn');
+        w.classList.toggle('on',d.approved===0&&d.total>0);
+    }catch(e){}
+}
+
+function startPoll(){if(poll)return;poll=setInterval(async()=>{const d=await stat();if(!d)return;ui(d);if(!d.running_task){stopPoll();if(d.last_success&&d.status!=='failed'){toast(d.last_success,'s');log(d.last_success,'s');}if(d.status==='failed'&&d.last_error){toast(d.last_error,'e');log(d.last_error,'e');}loadApprovals();}},2000);}
+function stopPoll(){if(poll){clearInterval(poll);poll=null;}}
+
+async function phase1(){
+    log('Starting new cycle...','i');
+    const r=await fetch(A+'/phase1/start',{method:'POST'});const d=await r.json();
+    if(r.ok){toast('Phase 1 started','i');startPoll();}else{toast(d.detail,'e');log(d.detail,'e');}
+    ui(await stat());
+}
+async function gen(type){
+    const labels={newsroom:'Newsroom Blog',linkedin:'LinkedIn Posts',blogs:'Blog Posts',newsletter:'Newsletter'};
+    if(!approvals)await loadApprovals();
+    if(type==='newsroom'&&approvals&&approvals.newsroom_tagged===0){toast('No topics tagged for Newsroom','e');return;}
+    if(type==='linkedin'&&approvals&&approvals.linkedin_tagged===0){toast('No topics tagged for LinkedIn','e');return;}
+    if(type==='blogs'&&approvals&&approvals.blog_tagged===0){toast('No topics tagged for Blog','e');return;}
+    if(type==='newsletter'){/* newsletter reads from newsroom tab, no pre-check needed */}
+    log('Generating '+labels[type]+'...','i');
+    const r=await fetch(A+'/generate/'+type,{method:'POST'});const d=await r.json();
+    if(r.ok){toast(labels[type]+' started','i');startPoll();}else{toast(d.detail,'e');}
+    ui(await stat());
+}
+async function stop(){
+    const r=await fetch(A+'/stop',{method:'POST'});const d=await r.json();toast(d.message,'i');log(d.message,'i');
+}
+
+// Init
+(async()=>{const d=await stat();if(d)ui(d);loadApprovals();})();
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{
+  "negative_news_protocol": {
+    "definition": "Visa rejection spikes, student housing scandals, university closure, protest coverage, sector funding cuts",
+    "approved_framing": {
+      "approach": "challenge + opportunity angle",
+      "style": "Data-led, not opinion-led",
+      "language_rules": [
+        "No alarm language (crisis, catastrophe, collapse)",
+        "Lead with data, not emotion",
+        "Always include forward-looking 'what this means' paragraph",
+        "Frame as market signal, not verdict"
+      ]
+    },
+    "off_limits_topics": [
+      "Party politics and political opinion",
+      "Religion",
+      "Immigration as cultural controversy (only as a data point)",
+      "Individual student complaints or legal cases",
+      "Internal university disputes"
+    ],
+    "competitor_rules": {
+      "never_mention": true,
+      "note": "No competitor brands, products, or people to be named in any content",
+      "competitor_list": [
+        "UniLiving London",
+        "UHomes",
+        "Student.com",
+        "UniAcco",
+        "Housing Anywhere",
+        "SpotaHome"
+      ],
+      "note_sturents": "StuRents is a competitor but can be cited as a data source"
+    },
+    "escalation": {
+      "trigger": "Topic is sensitive but editorially important",
+      "action": "Flag in review doc with [SENSITIVE] tag — requires named reviewer approval before publish",
+      "escalation_contact": "TODO: Add Slack handle / name of approver"
+    }
+  },
+  "content_rules": {
+    "data_sourcing": [
+      "Always cite the source name and date of data",
+      "Never use data older than 12 months without flagging it as historical",
+      "Prefer official/government sources over news reports where both exist"
+    ],
+    "tone_by_channel": {
+      "blog": "Longer, more data, structured with H2s, CTA at end",
+      "linkedin": "Punchy, hook-led, 150-300 words, single clear takeaway",
+      "newsletter": "Concise, scannable, 3-sentence summaries per section"
+    }
+  }
+}

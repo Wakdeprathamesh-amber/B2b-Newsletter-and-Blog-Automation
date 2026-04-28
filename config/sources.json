@@ -1,0 +1,243 @@
+{
+  "sources": [
+    {
+      "name": "QS World University Rankings",
+      "region": ["UK", "USA", "AU", "EU"],
+      "type": "data",
+      "priority": "high",
+      "url": "https://www.topuniversities.com/university-rankings",
+      "notes": "Annual rankings — check for 2026 release"
+    },
+    {
+      "name": "UCAS",
+      "region": ["UK"],
+      "type": "official",
+      "priority": "high",
+      "url": "https://www.ucas.com/data-and-analysis",
+      "notes": "Application cycle data, deadline triggers in Jan"
+    },
+    {
+      "name": "Bonard",
+      "region": ["UK", "USA", "AU", "EU"],
+      "type": "data",
+      "priority": "medium",
+      "url": "https://www.bonard.com",
+      "notes": "Student housing market intelligence"
+    },
+    {
+      "name": "JLL",
+      "region": ["UK", "USA", "AU", "EU"],
+      "type": "data",
+      "priority": "high",
+      "url": "https://www.jll.com",
+      "notes": "PBSA market reports, investment volumes"
+    },
+    {
+      "name": "StuRents",
+      "region": ["UK"],
+      "type": "data",
+      "priority": "medium",
+      "url": "https://sturents.com",
+      "notes": "UK student rent index data"
+    },
+    {
+      "name": "Knight Frank",
+      "region": ["UK", "AU", "EU"],
+      "type": "data",
+      "priority": "high",
+      "url": "https://www.knightfrank.com",
+      "notes": "PBSA reports, rent trends, investment data"
+    },
+    {
+      "name": "ICEF Monitor",
+      "region": ["UK", "USA", "AU", "EU"],
+      "type": "news",
+      "priority": "high",
+      "url": "https://monitor.icef.com",
+      "rss_url": "https://monitor.icef.com/feed/",
+      "limit": 30,
+      "notes": "Gold standard for international education news"
+    },
+    {
+      "name": "Cushman & Wakefield",
+      "region": ["UK", "USA", "AU", "EU"],
+      "type": "data",
+      "priority": "medium",
+      "url": "https://www.cushmanwakefield.com",
+      "notes": "Student accommodation market reports"
+    },
+    {
+      "name": "Enroly",
+      "region": ["UK", "AU"],
+      "type": "data",
+      "priority": "medium",
+      "url": "https://enroly.com",
+      "notes": "Student enrolment & onboarding data"
+    },
+    {
+      "name": "IHEC (International Higher Education Commission)",
+      "region": ["UK"],
+      "type": "official",
+      "priority": "high",
+      "url": "",
+      "notes": "UK HE policy and regulatory signals"
+    },
+    {
+      "name": "HESA",
+      "region": ["UK"],
+      "type": "official",
+      "priority": "high",
+      "url": "https://www.hesa.ac.uk",
+      "notes": "Gold standard — UK student enrolment, nationality breakdowns"
+    },
+    {
+      "name": "UK Government / Home Office",
+      "region": ["UK"],
+      "type": "official",
+      "priority": "high",
+      "url": "https://www.gov.uk/government/organisations/home-office",
+      "notes": "Visa statistics, immigration policy changes"
+    },
+    {
+      "name": "Migration Advisory Committee (MAC)",
+      "region": ["UK"],
+      "type": "official",
+      "priority": "high",
+      "url": "https://www.gov.uk/government/organisations/migration-advisory-committee",
+      "notes": "Immigration policy recommendations"
+    },
+    {
+      "name": "Global Migration Data Portal",
+      "region": ["UK", "USA", "AU", "EU"],
+      "type": "data",
+      "priority": "medium",
+      "url": "https://www.migrationdataportal.org",
+      "notes": "Cross-regional migration flow data"
+    },
+    {
+      "name": "The PIE News",
+      "region": ["UK", "USA", "AU", "EU"],
+      "type": "news",
+      "priority": "high",
+      "url": "https://thepienews.com",
+      "rss_url": "https://thepienews.com/feed/",
+      "limit": 30,
+      "notes": "International education sector news"
+    },
+    {
+      "name": "Unipol",
+      "region": ["UK"],
+      "type": "data",
+      "priority": "medium",
+      "url": "https://www.unipol.org.uk",
+      "notes": "UK student accommodation standards & data"
+    },
+    {
+      "name": "Property Week",
+      "region": ["UK"],
+      "type": "news",
+      "priority": "medium",
+      "url": "https://www.propertyweek.com",
+      "notes": "PBSA investment and development news"
+    },
+    {
+      "name": "PBSA News",
+      "region": ["UK", "EU"],
+      "type": "news",
+      "priority": "high",
+      "url": "",
+      "notes": "Dedicated purpose-built student accommodation coverage"
+    },
+    {
+      "name": "IIE (Institute of International Education)",
+      "region": ["USA"],
+      "type": "official",
+      "priority": "high",
+      "url": "https://www.iie.org",
+      "notes": "Open Doors data — USA international student enrolments"
+    },
+    {
+      "name": "DHA (Department of Home Affairs Australia)",
+      "region": ["AU"],
+      "type": "official",
+      "priority": "high",
+      "url": "https://www.homeaffairs.gov.au",
+      "notes": "Australian visa grants, policy changes"
+    },
+    {
+      "name": "Savills",
+      "region": ["UK", "AU", "EU"],
+      "type": "data",
+      "priority": "medium",
+      "url": "https://www.savills.com",
+      "notes": "PBSA market outlook, rent data"
+    },
+    {
+      "name": "Google News Discovery",
+      "region": ["UK", "USA", "AU", "CA", "EU"],
+      "type": "news",
+      "priority": "medium",
+      "url": "https://news.google.com",
+      "limit_per_query": 10,
+      "hl": "en-GB",
+      "gl": "GB",
+      "search_queries": [
+        "__UK__",
+        "UK student housing news when:14d",
+        "UK international student news when:14d",
+        "UK student visa policy when:14d",
+        "UK PBSA news when:14d",
+        "UK sponsored study visa when:14d",
+        "UCAS international applications when:14d",
+        "UK Home Office students when:14d",
+        "UK higher education enrolment when:14d",
+        "Russell Group international students when:14d",
+        "Office for Students news when:14d",
+        "__USA__",
+        "US international student news when:14d",
+        "US student housing news when:14d",
+        "US student visa news when:14d",
+        "US PBSA news when:14d",
+        "US F-1 visa news when:14d",
+        "US H-1B visa news when:14d",
+        "US OPT STEM students when:14d",
+        "US campus housing construction when:14d",
+        "__Australia__",
+        "Australia international student news when:14d",
+        "Australia student housing news when:14d",
+        "Australia student visa news when:14d",
+        "Australia PBSA news when:14d",
+        "Australia international student cap when:14d",
+        "Australia higher education enrolment when:14d",
+        "__Canada__",
+        "Canada international student news when:14d",
+        "Canada student housing news when:14d",
+        "Canada study permit news when:14d",
+        "IRCC international students when:14d",
+        "Canada PGWP news when:14d",
+        "Canada student cap when:14d",
+        "__Europe__",
+        "Germany international students when:14d",
+        "Germany student housing when:14d",
+        "Ireland international students when:14d",
+        "Ireland student housing when:14d",
+        "Netherlands student housing when:14d",
+        "Spain student accommodation when:14d",
+        "France international students when:14d",
+        "European PBSA investment when:14d",
+        "__Global__",
+        "international student mobility trends when:14d",
+        "global student housing investment when:14d",
+        "Indian student enrolment abroad when:14d",
+        "study abroad destination trends when:14d"
+      ],
+      "notes": "Discovery layer — region-grouped Google News queries. 'when:14d' is replaced at runtime with the precise weekly date window. Queries starting with __ are section markers (skipped by scraper)."
+    }
+  ],
+  "recency_rules": {
+    "news_max_age_days": 30,
+    "reports_max_age_months": 12,
+    "data_max_age_months": 12
+  },
+  "regions": ["UK", "USA", "AU", "CA", "EU"]
+}

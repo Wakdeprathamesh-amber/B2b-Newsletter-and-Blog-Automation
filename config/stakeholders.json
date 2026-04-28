@@ -1,0 +1,86 @@
+{
+  "stakeholders": {
+    "supply_partners": {
+      "label": "Supply Partners",
+      "description": "Property managers, PBSA operators, private landlords",
+      "care_about": [
+        "Occupancy rates and void periods",
+        "Rent yield and pricing trends",
+        "Visa volumes (leading indicator for demand)",
+        "Immigration data by city",
+        "New supply pipeline and competition",
+        "Seasonal booking patterns"
+      ],
+      "language_they_use": ["yield", "occupancy", "void periods", "NOI", "RevPAB", "beds", "nominations", "direct-let"],
+      "content_types": ["linkedin", "blog", "newsletter"],
+      "tone": {
+        "register": "Professional, operator-to-operator",
+        "data_density": "High — always lead with numbers",
+        "framing": "Commercial opportunity, market intelligence"
+      }
+    },
+    "universities": {
+      "label": "Universities / HE Institutions",
+      "description": "Housing teams, Deans, international office, finance directors",
+      "care_about": [
+        "Recruitment corridor shifts",
+        "Policy impact on international intake",
+        "Student demand forecasts",
+        "Accommodation guarantees and duty of care",
+        "Finance and fee income signals",
+        "Compliance and regulatory changes"
+      ],
+      "language_they_use": ["intake", "recruitment", "widening participation", "duty of care", "nominations agreement", "bed guarantees", "CAS", "sponsorship licence"],
+      "content_types": ["linkedin", "blog", "newsletter"],
+      "tone": {
+        "register": "Professional, institutional — slightly more formal",
+        "data_density": "Medium-high — contextualise data with policy implications",
+        "framing": "Strategic planning, student experience, institutional risk"
+      }
+    },
+    "hea_agents": {
+      "label": "HEA / Education Agents (IDP, etc.)",
+      "description": "Senior counsellors, franchise owners, frontline advisors",
+      "care_about": [
+        "Supply outlook in destination cities",
+        "University sentiment and recruitment appetite",
+        "Top destination market rankings",
+        "Emerging corridors and new opportunities",
+        "Visa processing times and success rates",
+        "Student cost of living data"
+      ],
+      "language_they_use": ["destination", "corridor", "intake", "placement", "student pipeline", "conversion rate", "counselling"],
+      "content_types": ["linkedin", "blog", "newsletter"],
+      "tone": {
+        "register": "Accessible, advisory — not academic",
+        "data_density": "Medium — headline stats with clear takeaway",
+        "framing": "Market opportunity, competitive intelligence, advising advantage"
+      }
+    }
+  },
+  "voices": {
+    "amber_company": {
+      "label": "amber company page",
+      "platform": "linkedin",
+      "tone": "Brand voice — data-led, authoritative, uses 'we'",
+      "perspective": "Company as market expert and partner",
+      "avoid": "Personal opinions, casual language, clickbait"
+    },
+    "madhur": {
+      "label": "Madhur — data-led thought leadership",
+      "platform": "linkedin",
+      "tone": "Data-analytics market intelligence, structured analysis, mixes personal POV ('I') with institutional framing ('Amber's view/take')",
+      "perspective": "Founder analysing market data — leads with stats, adds nuanced interpretation, gives actionable pricing/strategy recommendations",
+      "format": "Bold headline with key stat → structured sections with subheadings → data bullets with YoY comparisons and trend arrows (▼ ▲) → 'Amber's view/take →' recommendation → colleague tags → 5-8 hashtags",
+      "formatting_notes": "Uses Unicode bold for emphasis, bullet points (•), trend arrows (▼ ▲ →), italic for Amber's take sections",
+      "avoid": "Generic corporate speak, vague claims without data, opinion without evidence, alarm/negativity without nuance"
+    },
+    "jools": {
+      "label": "Jools — thought leadership",
+      "platform": "linkedin",
+      "tone": "Personal POV, university partnership angle, HE sector voice",
+      "perspective": "Senior leader bridging HE and accommodation sectors",
+      "avoid": "Overly commercial language, hard sell"
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "always_cover": [
+    {
+      "topic": "Visa policy changes",
+      "stakeholders": ["supply_partners", "universities", "hea_agents"],
+      "urgency": "high",
+      "notes": "Any government announcement on student visa rules — always cover same week"
+    },
+    {
+      "topic": "Rent index movements",
+      "stakeholders": ["supply_partners"],
+      "urgency": "medium",
+      "notes": "Monthly/quarterly rent data from Knight Frank, StuRents, Savills"
+    },
+    {
+      "topic": "International student enrolment data",
+      "stakeholders": ["universities", "hea_agents", "supply_partners"],
+      "urgency": "medium",
+      "notes": "HESA, IIE, UCAS releases — covers demand signals"
+    },
+    {
+      "topic": "Government targets for international students",
+      "stakeholders": ["universities", "hea_agents"],
+      "urgency": "high",
+      "notes": "Net migration targets, caps, recruitment quotas"
+    },
+    {
+      "topic": "PBSA supply pipeline / new developments",
+      "stakeholders": ["supply_partners"],
+      "urgency": "medium",
+      "notes": "New builds, planning approvals, operator expansions"
+    },
+    {
+      "topic": "University ranking changes",
+      "stakeholders": ["universities", "hea_agents"],
+      "urgency": "low",
+      "notes": "QS, THE — annual, cover when released"
+    },
+    {
+      "topic": "Emerging source markets / recruitment corridors",
+      "stakeholders": ["universities", "hea_agents", "supply_partners"],
+      "urgency": "medium",
+      "notes": "New nationality trends, shifting demand patterns"
+    },
+    {
+      "topic": "Student accommodation occupancy rates",
+      "stakeholders": ["supply_partners"],
+      "urgency": "medium",
+      "notes": "Void periods, occupancy %, seasonal patterns"
+    }
+  ],
+  "never_cover": [
+    {
+      "topic": "Domestic student news (non-international)",
+      "reason": "Not relevant to amber's audience"
+    },
+    {
+      "topic": "Undergraduate-only stories (no international angle)",
+      "reason": "amber focuses on international students"
+    },
+    {
+      "topic": "Party political opinion / editorial",
+      "reason": "amber is data-led, not politically positioned"
+    },
+    {
+      "topic": "Individual student complaint stories",
+      "reason": "Too granular, not strategic"
+    },
+    {
+      "topic": "Competitor product announcements",
+      "reason": "No competitor mentions in content"
+    }
+  ],
+  "seasonal_triggers": [
+    { "month": 1, "trigger": "UCAS application deadline (UK)", "region": "UK" },
+    { "month": 2, "trigger": "Australian intake cycle begins", "region": "AU" },
+    { "month": 3, "trigger": "UK spring budget (if scheduled)", "region": "UK" },
+    { "month": 5, "trigger": "US Open Doors preliminary data", "region": "USA" },
+    { "month": 6, "trigger": "QS World University Rankings release", "region": "all" },
+    { "month": 7, "trigger": "Australian mid-year intake", "region": "AU" },
+    { "month": 9, "trigger": "UK/EU academic year start — occupancy spike", "region": ["UK", "EU"] },
+    { "month": 10, "trigger": "UK Autumn budget", "region": "UK" },
+    { "month": 11, "trigger": "IIE Open Doors full report (USA)", "region": "USA" },
+    { "month": 12, "trigger": "HESA data release (UK)", "region": "UK" }
+  ],
+  "urgency_classification": {
+    "breaking": "Must publish this week — government policy change, major data release, sector crisis",
+    "timely": "Publish within 2 weeks — new report, ranking release, market shift",
+    "evergreen": "Can schedule flexibly — trend analysis, thought pieces, seasonal prep"
+  }
+}
