@@ -162,6 +162,26 @@ def check_google_sheet(cred_path: str, sheet_id: str, cred_data: dict) -> bool:
     except Exception as e:
         warn(f"Could not list worksheets: {e}")
 
+    # Validate Ranked Topics contract columns
+    try:
+        rt = sheet.worksheet("Ranked Topics")
+        values = rt.get_all_values()
+        headers = values[0] if values else []
+        required = {
+            "topic_id", "rank", "title", "summary", "primary_region",
+            "stakeholder_tags", "source_references", "decision", "channels",
+            "linkedin_voice", "blog_lens", "edited_title", "edited_summary",
+            "content_guidance", "reviewer_notes",
+        }
+        missing = sorted(required - set(headers))
+        if missing:
+            fail(f"Ranked Topics missing required columns: {missing}")
+            return False
+        ok("Ranked Topics contract columns present")
+    except Exception as e:
+        fail(f"Could not validate Ranked Topics contract: {e}")
+        return False
+
     try:
         test_ws = sheet.sheet1
         test_ws.update("Z1", [["ping"]])

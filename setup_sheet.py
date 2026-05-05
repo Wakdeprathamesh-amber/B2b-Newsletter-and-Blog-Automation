@@ -493,6 +493,17 @@ def main() -> int:
         requests = setup_tab(sheet, spec)
         apply_batch(sheet, requests)
 
+    # Upsert workflow contract marker so runtime can detect schema drift.
+    try:
+        from src.integrations.sheets import SheetsClient
+        from src.integrations.sheet_contracts import upsert_contract_version_marker
+
+        sc = SheetsClient()
+        upsert_contract_version_marker(sc)
+        print("  Updated Reference contract marker: ranked_topics_workflow")
+    except Exception as e:
+        print(f"  Warning: could not write contract marker: {e}")
+
     # Optional: delete the default "Sheet1" if it's still empty
     try:
         default = sheet.worksheet("Sheet1")

@@ -16,10 +16,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.models.schemas import Cycle, Topic
-from src.models.enums import CycleStatus, Region, UrgencyLevel, StakeholderAudience
+from src.models.schemas import Cycle, Topic, Signal
+from src.models.enums import CycleStatus, Region, TopicCategory
 from src.settings import settings
 from src.integrations.slack import get_slack_client
+from src.integrations.topic_sheet_reader import read_ranked_topics
 
 router = APIRouter(prefix="/api/ui")
 
@@ -93,67 +94,94 @@ def _check_cancel():
         raise RuntimeError("Cancelled by user")
 
 
-RMAP = {"uk": Region.UK, "usa": Region.USA, "us": Region.USA,
-        "australia": Region.AUSTRALIA, "canada": Region.CANADA,
-        "europe": Region.EUROPE, "global": Region.GLOBAL}
-AMAP = {"supply": StakeholderAudience.SUPPLY,
-        "university": StakeholderAudience.UNIVERSITY,
-        "hea": StakeholderAudience.HEA}
-
-
 def _read_approved_topics(sheets, channel_filter: str | None = None) -> list[Topic]:
     """Read approved topics from Ranked Topics tab, optionally filtered by channel."""
-    ws = sheets._ws("Ranked Topics")
+    return read_ranked_topics(
+        sheets,
+        approved_only=True,
+        channel_filter=channel_filter,
+    )
+
+
+def _read_kept_signals(sheets, cycle_id: str | None = None) -> list[Signal]:
+    """Read kept signals from Signals tab for reranking."""
+    ws = sheets._ws("Signals")
     data = ws.get_all_values()
     if len(data) < 2:
         return []
 
     headers = data[0]
     col = {h: i for i, h in enumerate(headers)}
-    topics = []
+    signals: list[Signal] = []
+
+    def g(row: list[str], name: str) -> str:
+        idx = col.get(name)
+        if idx is None or idx >= len(row):
+            return ""
+        return row[idx].strip()
 
     for row in data[1:]:
-        def g(name):
-            idx = col.get(name)
-            if idx is None or idx >= len(row): return ""
-            return row[idx].strip()
-
-        # Must be approved
-        decision = g("decision").lower()
-        if decision not in ("approve", "approved", "edit"):
+        if g(row, "status").lower() != "kept":
             continue
 
-        # Channel filter
-        if channel_filter:
-            channels = g("channels").lower()
-            if channel_filter.lower() not in channels:
-                continue
+        # Optional guard: if cycle_id is known, prefer today's batch by cycle_date.
+        # We keep this best-effort to avoid hard coupling to unavailable cycle_id column.
+        cycle_date = g(row, "cycle_date")
+        if cycle_id and _state.get("cycle_id") == cycle_id and not cycle_date:
+            continue
 
-        region = RMAP.get(g("primary_region").lower(), Region.GLOBAL)
-        tags = [AMAP[t.strip().lower()] for t in g("stakeholder_tags").split(",")
-                if t.strip().lower() in AMAP]
-        try:
-            rank = int(g("rank"))
-        except ValueError:
-            rank = 99
+        region_key = g(row, "region").strip().lower()
+        category_key = g(row, "topic_category").strip().lower()
 
-        topics.append(Topic(
-            topic_id=g("topic_id") or f"t-{len(topics)+1}",
-            title=g("edited_title") or g("title"),
-            summary=g("edited_summary") or g("summary"),
-            content_guidance=g("content_guidance") or g("reviewer_notes"),
-            rank=min(rank, 60),
-            urgency=UrgencyLevel.TIME_SENSITIVE,
-            primary_region=region,
-            stakeholder_tags=tags,
-            source_urls=[u.strip() for u in g("source_references").split("\n") if u.strip()],
-        ))
+        region = {
+            "uk": Region.UK,
+            "usa": Region.USA,
+            "us": Region.USA,
+            "australia": Region.AUSTRALIA,
+            "au": Region.AUSTRALIA,
+            "canada": Region.CANADA,
+            "ca": Region.CANADA,
+            "europe": Region.EUROPE,
+            "eu": Region.EUROPE,
+            "global": Region.GLOBAL,
+        }.get(region_key, Region.GLOBAL)
 
-        # Attach voice/lens as extra attributes for downstream use
-        topics[-1]._linkedin_voice = g("linkedin_voice")
-        topics[-1]._blog_lens = g("blog_lens")
+        category = {
+            "rent trends": TopicCategory.RENT_TRENDS,
+            "visa data": TopicCategory.VISA_DATA,
+            "student demand": TopicCategory.STUDENT_DEMAND,
+            "policy changes": TopicCategory.POLICY_CHANGES,
+            "supply outlook": TopicCategory.SUPPLY_OUTLOOK,
+            "emerging markets": TopicCategory.EMERGING_MARKETS,
+            "qs rankings": TopicCategory.QS_RANKINGS,
+            "other": TopicCategory.OTHER,
+        }.get(category_key, TopicCategory.OTHER)
 
-    return topics
+        signals.append(
+            Signal(
+                signal_id=g(row, "signal_id") or f"sig-{len(signals) + 1}",
+                source_name=g(row, "source_name") or "Unknown",
+                source_url=g(row, "source_url"),
+                headline=g(row, "headline") or "Untitled",
+                summary=g(row, "summary"),
+                region=region,
+                topic_category=category,
+                is_negative_news=g(row, "is_negative_news").lower() == "yes",
+                is_opinion=g(row, "is_opinion").lower() == "yes",
+            )
+        )
+
+    return signals
+
+
+def _clear_ranked_topics_rows(sheets) -> int:
+    """Clear all data rows from Ranked Topics (keep header)."""
+    ws = sheets._ws("Ranked Topics")
+    data = ws.get_all_values()
+    if len(data) <= 1:
+        return 0
+    ws.delete_rows(2, len(data))
+    return len(data) - 1
 
 
 # ── Status ────────────────────────────────────────────────────────────────
@@ -248,6 +276,66 @@ async def start_phase1():
     _set_running("Phase 1: Scrape + Rank")
     asyncio.create_task(_run_phase1())
     return {"message": "Phase 1 started"}
+
+
+@router.post("/phase1/rerank")
+async def rerank_from_kept_signals():
+    """Re-run Stage 2 ranking only from existing kept signals."""
+    if _state["running_task"]:
+        raise HTTPException(400, f"Already running: {_state['running_task']}")
+    _set_running("Stage 2 Rerank from Signals")
+    asyncio.create_task(_run_rerank())
+    return {"message": "Stage 2 rerank started"}
+
+
+async def _run_rerank():
+    try:
+        sheets = _sheets()
+        cycle_id = _state.get("cycle_id") or "manual"
+        cycle_date = datetime.now(timezone.utc).strftime("%-d %b %Y")
+
+        _state["step"] = "Reading kept signals from sheet..."
+        signals = _read_kept_signals(sheets, cycle_id=cycle_id)
+        _state["signals"] = len(signals)
+
+        if not signals:
+            _fail("No kept signals found in Signals tab for reranking.")
+            return
+
+        _state["step"] = f"Re-ranking {len(signals)} kept signals..."
+        slack.send_message_async(f"⏳ Stage 2 rerank started from kept signals (`{cycle_id}`)")
+
+        @dataclass
+        class SimpleState:
+            cycle: Cycle
+            signals: list = field(default_factory=list)
+            ranked_topics: list = field(default_factory=list)
+            errors: list = field(default_factory=list)
+
+        state = SimpleState(cycle=Cycle(cycle_id=cycle_id, stage=2, status=CycleStatus.RUNNING), signals=signals)
+        from src.graph.nodes.topic_selection import select_topics
+
+        result = await select_topics(state)
+        ranked = result.get("ranked_topics", []) or []
+
+        _state["step"] = "Replacing Ranked Topics rows..."
+        removed = _clear_ranked_topics_rows(sheets)
+        sheets.append_ranked_topics(ranked, cycle_date=cycle_date)
+        _state["ranked"] = len(ranked)
+
+        sheets.update_dashboard(
+            cycle_id=cycle_id,
+            stage="Review topics in sheet",
+            status="Review",
+            signals=len(signals),
+            ranked=len(ranked),
+        )
+        _done(f"Rerank complete: {len(ranked)} topics written (replaced {removed} old rows).")
+        slack.send_message_async(f"✅ Stage 2 rerank complete (`{cycle_id}`): {len(ranked)} topics")
+    except Exception as e:
+        slack.notify_error(_state.get("cycle_id", "unknown"), "Stage 2 Rerank", str(e))
+        _fail(str(e))
+        traceback.print_exc()
 
 
 async def _run_phase1():

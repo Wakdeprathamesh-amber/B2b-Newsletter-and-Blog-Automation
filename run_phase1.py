@@ -1,12 +1,12 @@
 """Phase 1 end-to-end runner.
 
-Runs Stages 1-3 of the Amber Content Engine against real sources and writes
+Runs Stages 1-2 of the Amber Content Engine against real sources and writes
 all output to the master Google Sheet.
 
     Stage 1 — scrape news from ICEF Monitor + The PIE News RSS feeds
               + Google News targeted queries (last 14 days)
     Stage 2 — LLM scores and ranks the signals into 30-50 candidate topics
-    Stage 3 — LLM selects 7-12 topics per region for Amber Beat newsroom blog
+    Human Review — reviewers approve/tag rows in Ranked Topics
 
 Usage:
     python3 run_phase1.py                 # full run
@@ -38,7 +38,6 @@ class SimpleState:
     cycle: Cycle
     signals: list = field(default_factory=list)
     ranked_topics: list = field(default_factory=list)
-    shortlisted_topics: list = field(default_factory=list)
     errors: list = field(default_factory=list)
 
 
@@ -212,48 +211,13 @@ async def run(limit: int | None = None, sources_only: bool = False) -> int:
         except Exception as e:
             err(f"Sheet write failed: {e}")
     else:
-        warn("No topics ranked — cannot shortlist")
+        warn("No topics ranked — cannot proceed to review")
         sheets.update_dashboard(status="Failed: no topics")
         return 1
 
-    sheets.update_dashboard(
-        stage="3: Shortlisting",
-        status="Running",
-        ranked=len(ranked),
-    )
-
-    # ── Stage 3 ──
-    stage(3, "Shortlisting 7-12 per region for Amber Beat newsroom blog")
-    try:
-        from src.graph.nodes.shortlisting import shortlist_topics
-        result = await shortlist_topics(state)
-    except Exception as e:
-        err(f"Stage 3 crashed: {e}")
-        traceback.print_exc()
-        sheets.append_errors(cycle_id, "Stage 3", [str(e)])
-        return 1
-
-    shortlisted = result.get("shortlisted_topics", []) or []
-    state.shortlisted_topics = shortlisted
-    if result.get("cycle"):
-        state.cycle = result["cycle"]
-    state.cycle.topic_count = len(shortlisted)
-
-    for e_msg in result.get("errors", []):
-        warn(e_msg)
-
-    ok(f"{len(shortlisted)} topics shortlisted")
-
-    if shortlisted:
-        try:
-            sheets.append_shortlist(shortlisted, cycle_date=cycle_date)
-            ok("Shortlist written to sheet (Gate 1 ready for review)")
-        except Exception as e:
-            err(f"Sheet write failed: {e}")
-
     # ── Finalise ──
     state.cycle.status = CycleStatus.AWAITING_TOPIC_APPROVAL
-    state.cycle.stage = 3
+    state.cycle.stage = 2
 
     try:
         sheets.append_cycle(
@@ -261,7 +225,6 @@ async def run(limit: int | None = None, sources_only: bool = False) -> int:
             counts={
                 "signals": len(signals),
                 "ranked": len(ranked),
-                "shortlisted": len(shortlisted),
             },
         )
     except Exception as e:
@@ -269,24 +232,23 @@ async def run(limit: int | None = None, sources_only: bool = False) -> int:
 
     sheets.update_dashboard(
         cycle_id=cycle_id,
-        stage="Gate 1 — awaiting human review",
+        stage="Gate 1 — review Ranked Topics",
         status="Gate 1 Waiting",
         signals=len(signals),
         ranked=len(ranked),
-        shortlisted=len(shortlisted),
     )
 
     # ── Summary ──
     print(f"\n{BOLD}{GREEN}✅ Phase 1 complete{RESET}")
     hr()
 
-    # Group shortlisted by region
+    # Group ranked topics by region
     by_region: dict[str, list] = {}
-    for t in shortlisted:
+    for t in ranked:
         r = t.primary_region.value if hasattr(t.primary_region, "value") else t.primary_region
         by_region.setdefault(r, []).append(t)
 
-    print(f"{BOLD}Shortlisted topics for Amber Beat newsroom blog ({len(shortlisted)} total){RESET}\n")
+    print(f"{BOLD}Ranked topics for review ({len(ranked)} total){RESET}\n")
     for region_name in ["UK", "USA", "Australia", "Canada", "Europe", "Global"]:
         topics_in_region = by_region.get(region_name, [])
         if not topics_in_region:
@@ -303,7 +265,7 @@ async def run(limit: int | None = None, sources_only: bool = False) -> int:
             print(f"       {DIM}... and {len(topics_in_region) - 8} more{RESET}")
         print()
 
-    print(f"{DIM}Full results & Gate 1 review:{RESET}")
+    print(f"{DIM}Gate 1 review in Ranked Topics tab:{RESET}")
     print(
         f"  https://docs.google.com/spreadsheets/d/{settings.google_master_sheet_id}\n"
     )

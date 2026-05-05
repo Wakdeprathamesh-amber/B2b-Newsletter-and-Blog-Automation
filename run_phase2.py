@@ -1,7 +1,6 @@
 """Phase 2 runner — Content Generation.
 
-Reads the Shortlist tab from the master Google Sheet (7-12 topics per region),
-then generates:
+Reads approved topics from the Ranked Topics tab, then generates:
   - LinkedIn posts (top topics x 3 voices: Amber Brand, Madhur, Jools)
   - 1 bimonthly newsletter (Market Watch + amber Beat variants, sourced from
     the newsroom blog shortlisted topics)
@@ -22,7 +21,6 @@ import asyncio
 import sys
 import traceback
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime
 
 import os
@@ -31,7 +29,6 @@ os.environ.setdefault("DEV_MODE", "false")
 from src.models.schemas import Cycle, Topic, ContentDraft  # noqa: E402
 from src.models.enums import (  # noqa: E402
     CycleStatus, DraftChannel, DraftStatus, DraftVoice,
-    Region, StakeholderAudience, UrgencyLevel,
 )
 from src.settings import settings  # noqa: E402
 
@@ -67,71 +64,6 @@ def err(msg: str) -> None:
     print(f"  {RED}x{RESET} {msg}")
 
 
-# ── Read shortlist from Google Sheet ─────────────────────────────────────
-REGION_MAP = {
-    "uk": Region.UK,
-    "usa": Region.USA,
-    "us": Region.USA,
-    "australia": Region.AUSTRALIA,
-    "europe": Region.EUROPE,
-    "global": Region.GLOBAL,
-}
-
-AUDIENCE_MAP = {
-    "supply": StakeholderAudience.SUPPLY,
-    "university": StakeholderAudience.UNIVERSITY,
-    "hea": StakeholderAudience.HEA,
-}
-
-
-def parse_shortlist_rows(headers: list[str], rows: list[list[str]]) -> list[Topic]:
-    """Convert raw sheet rows into Topic objects."""
-    topics: list[Topic] = []
-    col = {h: i for i, h in enumerate(headers)}
-
-    for row in rows:
-        def g(name: str) -> str:
-            idx = col.get(name)
-            if idx is None or idx >= len(row):
-                return ""
-            return row[idx].strip()
-
-        # Parse region
-        region_str = g("primary_region").lower()
-        region = REGION_MAP.get(region_str, Region.GLOBAL)
-
-        # Parse stakeholder tags
-        raw_tags = [t.strip() for t in g("stakeholder_tags").split(",") if t.strip()]
-        tags = []
-        for t in raw_tags:
-            mapped = AUDIENCE_MAP.get(t.lower())
-            if mapped:
-                tags.append(mapped)
-
-        # Parse rank
-        try:
-            rank = int(g("rank"))
-        except ValueError:
-            rank = 99
-
-        topic = Topic(
-            topic_id=g("topic_id") or f"topic-{uuid.uuid4().hex[:8]}",
-            title=g("title"),
-            summary=g("summary"),
-            content_guidance=g("content_guidance"),
-            rank=min(rank, 60),
-            urgency=UrgencyLevel.TIME_SENSITIVE,
-            primary_region=region,
-            stakeholder_tags=tags,
-            source_urls=[u.strip() for u in g("source_references").split("\n") if u.strip()],
-            edited_title=g("edited_title") or None,
-            edited_summary=g("edited_summary") or None,
-        )
-        topics.append(topic)
-
-    return topics
-
-
 # ── Main ─────────────────────────────────────────────────────────────────
 async def run(
     topic_limit: int | None = None,
@@ -149,8 +81,8 @@ async def run(
         err("No LLM API key configured -- aborting")
         return 1
 
-    # 1. Connect to sheet and read shortlist
-    stage("1", "Reading shortlist from Google Sheet")
+    # 1. Connect to sheet and read approved topics from Ranked Topics
+    stage("1", "Reading approved topics from Ranked Topics")
     try:
         from src.integrations.sheets import SheetsClient
         sheets = SheetsClient()
@@ -159,26 +91,18 @@ async def run(
         err(f"Cannot connect to Sheet: {e}")
         return 1
 
-    try:
-        ws = sheets._ws("Shortlist")
-        all_data = ws.get_all_values()
-    except Exception as e:
-        err(f"Cannot read Shortlist tab: {e}")
-        return 1
-
-    if len(all_data) < 2:
-        err("Shortlist tab is empty (no data rows)")
-        return 1
-
-    headers = all_data[0]
-    data_rows = all_data[1:]
-    topics = parse_shortlist_rows(headers, data_rows)
+    from src.integrations.topic_sheet_reader import read_ranked_topics
+    topics = read_ranked_topics(sheets, approved_only=True)
 
     if topic_limit and len(topics) > topic_limit:
         topics = topics[:topic_limit]
         warn(f"Limited to first {topic_limit} topics")
 
-    ok(f"{len(topics)} shortlisted topics loaded:")
+    if not topics:
+        err("No approved topics found in Ranked Topics tab")
+        return 1
+
+    ok(f"{len(topics)} approved topics loaded:")
     for t in topics:
         print(f"    {t.rank}. {t.title} [{t.primary_region}]")
 
