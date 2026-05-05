@@ -72,13 +72,18 @@ Your job: convert the ranked topics below into concise newsroom blog items — o
 {regional_topics}
 
 ## Output Format
-Return a JSON object with region keys, each containing an array of items:
+Return a JSON object with region keys, each containing an array of items.
+**CRITICAL: Return ONLY valid JSON. No explanatory text before or after the JSON.**
+
+Example structure:
 {{
     "UK": [
-        {{"item_text": "21-25 word news item ending with (Source)", "topic_id": "top-001", "source_url": "https://..."}},
-        ...
+        {{"item_text": "21-25 word news item ending with [Source](url)", "topic_id": "TOP-01", "source_url": "https://..."}},
+        {{"item_text": "Another 21-25 word news item [Source](url)", "topic_id": "TOP-02", "source_url": "https://..."}}
     ],
-    "USA": [...],
+    "USA": [
+        {{"item_text": "21-25 word news item [Source](url)", "topic_id": "TOP-03", "source_url": "https://..."}}
+    ],
     "Australia": [...],
     "Canada": [...],
     "Europe": [...],
@@ -86,7 +91,7 @@ Return a JSON object with region keys, each containing an array of items:
 }}
 
 Target: 7-12 items per region (fewer for Global: 3-5).
-Return ONLY the JSON object."""
+**Return ONLY the JSON object. No markdown code fences. No explanatory text.**"""
 
 
 async def generate_newsroom_blog(state: PipelineState) -> dict:

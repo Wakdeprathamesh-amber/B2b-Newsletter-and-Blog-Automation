@@ -367,11 +367,24 @@ async def generate_newsroom_items(
         print(f"      {region}: {len(items)} topics to convert")
 
     try:
-        raw_items = await complete_json(
+        # Try to get JSON response
+        from src.llm import complete
+        raw_response = await complete(
             role="generation",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=8000,
         )
+        
+        # Try to extract JSON from response
+        from src.llm import extract_json
+        try:
+            raw_items = extract_json(raw_response)
+        except json.JSONDecodeError as json_err:
+            # Save the raw response for debugging
+            err(f"LLM returned non-JSON response ({len(raw_response)} chars)")
+            err(f"First 500 chars: {raw_response[:500]}")
+            errors.append(f"Newsroom blog: JSON parsing failed - {json_err}")
+            return {}, errors
 
         newsroom_items: dict[str, list[dict]] = {}
         for region in ["UK", "USA", "Australia", "Europe", "Global"]:
@@ -394,6 +407,7 @@ async def generate_newsroom_items(
     except Exception as e:
         errors.append(f"Newsroom blog: {e}")
         err(f"Newsroom blog generation failed: {e}")
+        traceback.print_exc()
         return {}, errors
 
 
