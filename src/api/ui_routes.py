@@ -35,6 +35,8 @@ _state: dict = {
     "linkedin_drafts": 0, "blog_drafts": 0, "newsletter": 0,
     "running_task": None, "last_error": None, "last_success": None,
     "sheet_url": f"https://docs.google.com/spreadsheets/d/{settings.google_master_sheet_id}",
+    "progress": None,  # {"current": 0, "total": 0, "item": ""}
+    "metrics": None,  # LLM usage metrics
 }
 _cancel_requested = False
 
@@ -55,6 +57,8 @@ class StatusResponse(BaseModel):
     last_error: str | None
     last_success: str | None
     sheet_url: str
+    progress: dict | None = None  # {"current": 15, "total": 69, "item": "..."}
+    metrics: dict | None = None  # LLM usage metrics
 
 
 class ApprovalStatus(BaseModel):
@@ -193,6 +197,14 @@ async def get_status() -> StatusResponse:
             _hydrate_from_dashboard()
         except Exception:
             pass
+    
+    # Add LLM metrics if available
+    try:
+        from src.llm import get_metrics
+        _state["metrics"] = get_metrics()
+    except Exception:
+        pass
+    
     return StatusResponse(**_state)
 
 
@@ -467,7 +479,17 @@ async def _run_newsroom():
             _fail(error_msg)
             return
 
+        # Validate topics before generation
+        from src.integrations.topic_sheet_reader import validate_topics_for_generation
+        validation_errors = validate_topics_for_generation(topics, "Newsroom", max_topics=50)
+        if validation_errors:
+            error_msg = f"Topic validation failed: {'; '.join(validation_errors[:3])}"
+            slack.notify_error(cycle_id, "Newsroom Generation", error_msg)
+            _fail(error_msg)
+            return
+
         _state["step"] = f"Generating newsroom items from {len(topics)} topics..."
+        _state["progress"] = {"current": 0, "total": len(topics), "item": "Starting..."}
         slack.send_message_async(f"⏳ Generating Newsroom Blog from {len(topics)} topics... (`{cycle_id}`)")
         
         from run_phase2 import generate_newsroom_items
@@ -476,18 +498,29 @@ async def _run_newsroom():
         total = sum(len(v) for v in items.values())
         _state["newsroom_items"] = total
 
+        if total == 0:
+            error_msg = f"Newsroom generation produced 0 items. Errors: {'; '.join(errors[:3])}"
+            slack.notify_error(cycle_id, "Newsroom Generation", error_msg)
+            _fail(error_msg)
+            return
+
         _state["step"] = "Writing to sheet..."
         cycle_date = datetime.now(timezone.utc).strftime("%-d %b %Y")
         topic_titles = {t.topic_id: t.title for t in topics}
         sheets.append_newsroom_items(items, cycle_id=cycle_id,
                                      cycle_date=cycle_date, topic_titles=topic_titles)
 
+        success_msg = f"Newsroom Blog: {total} items written to sheet"
+        if errors:
+            success_msg += f" (with {len(errors)} errors)"
         slack.notify_content_generated(cycle_id, "newsroom", total)
-        _done(f"Newsroom Blog: {total} items written to sheet")
+        _done(success_msg)
     except Exception as e:
         slack.notify_error(_state.get("cycle_id", "unknown"), "Newsroom Generation", str(e))
         _fail(str(e))
         traceback.print_exc()
+    finally:
+        _state["progress"] = None
 
 
 # ── Generate: LinkedIn ────────────────────────────────────────────────────
@@ -515,7 +548,17 @@ async def _run_linkedin():
             _fail(error_msg)
             return
 
+        # Validate topics
+        from src.integrations.topic_sheet_reader import validate_topics_for_generation
+        validation_errors = validate_topics_for_generation(topics, "LinkedIn", max_topics=30)
+        if validation_errors:
+            error_msg = f"Topic validation failed: {'; '.join(validation_errors[:3])}"
+            slack.notify_error(cycle_id, "LinkedIn Generation", error_msg)
+            _fail(error_msg)
+            return
+
         _state["step"] = f"Generating LinkedIn posts from {len(topics)} topics..."
+        _state["progress"] = {"current": 0, "total": len(topics) * 3, "item": "Starting..."}
         slack.send_message_async(f"⏳ Generating LinkedIn posts from {len(topics)} topics... (`{cycle_id}`)")
         
         from run_phase2 import generate_linkedin_posts
@@ -523,16 +566,27 @@ async def _run_linkedin():
         drafts, errors = await generate_linkedin_posts(topics, cycle_id)
         _state["linkedin_drafts"] = len(drafts)
 
+        if not drafts:
+            error_msg = f"LinkedIn generation produced 0 drafts. Errors: {'; '.join(errors[:3])}"
+            slack.notify_error(cycle_id, "LinkedIn Generation", error_msg)
+            _fail(error_msg)
+            return
+
         _state["step"] = "Writing to sheet..."
         topic_titles = {t.topic_id: t.title for t in topics}
         sheets.append_linkedin_drafts(drafts, topic_titles=topic_titles)
 
+        success_msg = f"LinkedIn: {len(drafts)} posts written to sheet"
+        if errors:
+            success_msg += f" (with {len(errors)} errors)"
         slack.notify_content_generated(cycle_id, "linkedin", len(drafts))
-        _done(f"LinkedIn: {len(drafts)} posts written to sheet")
+        _done(success_msg)
     except Exception as e:
         slack.notify_error(_state.get("cycle_id", "unknown"), "LinkedIn Generation", str(e))
         _fail(str(e))
         traceback.print_exc()
+    finally:
+        _state["progress"] = None
 
 
 # ── Generate: Blogs ───────────────────────────────────────────────────────

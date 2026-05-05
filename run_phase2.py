@@ -251,25 +251,33 @@ async def run(
     return 0
 
 
-# ── LinkedIn generation ──────────────────────────────────────────────────
+# ── LinkedIn generation (with partial success & progress tracking) ──────────
 async def generate_linkedin_posts(
     topics: list[Topic], cycle_id: str
 ) -> tuple[list[ContentDraft], list[str]]:
-    """Generate 5 topics x 3 voices = 15 LinkedIn posts."""
+    """Generate 5 topics x 3 voices = 15 LinkedIn posts with partial success handling."""
 
     from src.graph.nodes.content_linkedin import VOICE_CONFIGS, _validate_linkedin_post
     from src.llm import complete
     from pathlib import Path
+    import uuid
 
     prompt_template = Path("prompts/linkedin-post.md").read_text()
     voices = [DraftVoice.AMBER_BRAND, DraftVoice.MADHUR, DraftVoice.JOOLS]
     drafts: list[ContentDraft] = []
     errors: list[str] = []
 
+    total_items = len(topics) * len(voices)
+    current_item = 0
+
     for topic in topics:
         for voice in voices:
+            current_item += 1
             voice_config = VOICE_CONFIGS[voice]
-            import json
+            
+            # Truncate title for display
+            display_title = topic.title[:40] + "..." if len(topic.title) > 40 else topic.title
+            print(f"    Generating: {display_title} [{voice.value}]")
 
             generation_prompt = f"""{prompt_template}
 
@@ -292,13 +300,18 @@ Rules: {json.dumps(voice_config['rules'])}
 
 Write the LinkedIn post now. Return ONLY the post text (and hashtags if applicable)."""
 
-            print(f"    Generating: {topic.title[:40]}... [{voice.value}]")
-
             try:
                 content_body = await complete(
                     role="generation",
                     messages=[{"role": "user", "content": generation_prompt}],
                     max_tokens=2000,
+                    timeout=90.0,
+                    context={
+                        "topic_id": topic.topic_id,
+                        "topic_title": topic.title,
+                        "voice": voice.value,
+                        "progress": f"{current_item}/{total_items}",
+                    },
                 )
                 word_count = len(content_body.split())
                 flags = _validate_linkedin_post(content_body, voice, word_count)
@@ -323,19 +336,44 @@ Write the LinkedIn post now. Return ONLY the post text (and hashtags if applicab
                 print(f"      {word_count}w -- {status}")
 
             except Exception as e:
-                errors.append(f"LinkedIn [{topic.title[:30]} / {voice}]: {e}")
+                error_msg = f"LinkedIn [{topic.title[:30]} / {voice.value}]: {e}"
+                errors.append(error_msg)
                 err(f"Failed: {topic.title[:40]} [{voice.value}] -- {e}")
+                
+                # Create failed draft placeholder
+                drafts.append(ContentDraft(
+                    draft_id=f"li-{uuid.uuid4().hex[:8]}",
+                    cycle_id=cycle_id,
+                    topic_id=topic.topic_id,
+                    channel=DraftChannel.LINKEDIN,
+                    voice=voice,
+                    content_body=f"[Generation failed: {str(e)[:100]}]",
+                    word_count=0,
+                    generation_prompt=generation_prompt,
+                    generation_model=settings.generation_model,
+                    status=DraftStatus.GENERATION_FAILED,
+                    validation_flags=["generation_failed"],
+                ))
+                
+                # Continue with next item instead of failing entire batch
+                continue
 
     return drafts, errors
 
 
-# ── Newsroom Blog generation ────────────────────────────────────────────
+# ── Newsroom Blog generation (per-region for reliability) ──────────────────
 async def generate_newsroom_items(
     topics: list[Topic], cycle_id: str
 ) -> tuple[dict[str, list], list[str]]:
-    """Generate Amber Beat newsroom blog items: 7-12 per region, 21-25 words each."""
+    """Generate Amber Beat newsroom blog items: process one region at a time for reliability.
+    
+    This approach is more reliable than generating all regions at once because:
+    - Smaller prompts → more reliable JSON parsing
+    - Better error isolation (one region fails, others succeed)
+    - Easier to debug and retry
+    """
 
-    from src.graph.nodes.content_newsroom import NEWSROOM_PROMPT, REGION_ORDER, _topic_priority
+    from src.graph.nodes.content_newsroom import _topic_priority, REGION_ORDER
     from src.llm import complete_json
     import json
 
@@ -358,37 +396,33 @@ async def generate_newsroom_items(
             for t in region_topics
         ]
 
-    prompt = NEWSROOM_PROMPT.format(
-        regional_topics=json.dumps(regional_topics, indent=2)
-    )
-
     print("    Generating newsroom blog items per region...")
-    for region, items in regional_topics.items():
-        print(f"      {region}: {len(items)} topics to convert")
-
-    try:
-        # Try to get JSON response
-        from src.llm import complete
-        raw_response = await complete(
-            role="generation",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=8000,
-        )
+    
+    # Process each region separately for better reliability
+    all_newsroom_items: dict[str, list[dict]] = {}
+    
+    for region_key, region_topics_data in regional_topics.items():
+        if not region_topics_data:
+            all_newsroom_items[region_key] = []
+            continue
+            
+        print(f"      {region_key}: {len(region_topics_data)} topics to convert...")
         
-        # Try to extract JSON from response
-        from src.llm import extract_json
         try:
-            raw_items = extract_json(raw_response)
-        except json.JSONDecodeError as json_err:
-            # Save the raw response for debugging
-            err(f"LLM returned non-JSON response ({len(raw_response)} chars)")
-            err(f"First 500 chars: {raw_response[:500]}")
-            errors.append(f"Newsroom blog: JSON parsing failed - {json_err}")
-            return {}, errors
-
-        newsroom_items: dict[str, list[dict]] = {}
-        for region in ["UK", "USA", "Australia", "Europe", "Global"]:
-            region_items = raw_items.get(region, [])
+            # Generate prompt for this region only
+            prompt = _build_newsroom_prompt_for_region(region_key, region_topics_data)
+            
+            # Call LLM with context for better error logging
+            raw_items = await complete_json(
+                role="generation",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=4000,  # Smaller since it's per-region
+                timeout=90.0,
+                context={"region": region_key, "topic_count": len(region_topics_data)},
+            )
+            
+            # Validate and structure the output
+            region_items = raw_items if isinstance(raw_items, list) else raw_items.get(region_key, [])
             validated = []
             for item in region_items:
                 text = item.get("item_text", "")
@@ -400,15 +434,58 @@ async def generate_newsroom_items(
                     "word_count": word_count,
                     "valid": 18 <= word_count <= 28,
                 })
-            newsroom_items[region] = validated
+            all_newsroom_items[region_key] = validated
+            print(f"        ✓ Generated {len(validated)} items")
+            
+        except Exception as e:
+            errors.append(f"[{region_key}] Newsroom generation failed: {e}")
+            err(f"[{region_key}] Failed: {e}")
+            all_newsroom_items[region_key] = []
+            continue
 
-        return newsroom_items, errors
+    return all_newsroom_items, errors
 
-    except Exception as e:
-        errors.append(f"Newsroom blog: {e}")
-        err(f"Newsroom blog generation failed: {e}")
-        traceback.print_exc()
-        return {}, errors
+
+def _build_newsroom_prompt_for_region(region: str, topics: list[dict]) -> str:
+    """Build newsroom generation prompt for a single region."""
+    import json
+    
+    target_min, target_max = {
+        "UK": (7, 12),
+        "USA": (7, 12),
+        "Australia": (7, 12),
+        "Canada": (7, 12),
+        "Europe": (7, 12),
+        "Global": (3, 5),
+    }.get(region, (7, 12))
+    
+    return f"""You are a newsroom editor for **amber Beat**, a weekly student accommodation sector news roundup.
+
+Your job: convert the topics below into concise newsroom blog items — one item per topic.
+
+## Item Format Rules
+- Each item: **one sentence, 20-30 words**, neutral factual tone.
+- Include at least one specific data point (number, percentage, monetary figure).
+- End with source attribution: [Source](url)
+- No opinion, no "amber thinks", no promotional language.
+
+## Real Examples (match this style):
+- UK international enrollments declined 31% year-over-year, with 70% of universities reporting postgraduate decreases due to visa restrictions. [Source](url)
+- Student visa rejections for Indian applicants increased to 61% (from 53%), significantly exceeding European rejection rates (~9%). [Source](url)
+- Scape expanded to $20B PBSA operator managing approximately 20,000 apartments across 40 properties, targeting 100,000 beds by 2030/32. [Source](url)
+
+## Topics for {region} ({len(topics)} topics)
+
+{json.dumps(topics, indent=2)}
+
+## Output Format
+Return a JSON array of {target_min}-{target_max} items:
+[
+    {{"item_text": "20-30 word news item [Source](url)", "topic_id": "TOP-01", "source_url": "https://..."}},
+    {{"item_text": "Another 20-30 word news item [Source](url)", "topic_id": "TOP-02", "source_url": "https://..."}}
+]
+
+**CRITICAL: Return ONLY the JSON array. No markdown fences. No explanatory text.**"""
 
 
 # ── Newsletter generation (from newsroom items) ────────────────────────
