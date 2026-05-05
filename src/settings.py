@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     # Google
     google_service_account_json: str = ""
+    google_service_account_json_content: str = ""
+    google_service_account_json_base64: str = ""
     google_master_sheet_id: str = ""
 
     # Slack

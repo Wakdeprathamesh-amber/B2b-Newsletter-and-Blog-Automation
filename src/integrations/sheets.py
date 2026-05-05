@@ -8,6 +8,8 @@ Tabs expected (created by setup_sheet.py):
 
 from __future__ import annotations
 
+import base64
+import json
 from datetime import datetime
 from typing import Any, Iterable
 
@@ -27,6 +29,46 @@ SCOPES = [
 CHUNK_SIZE = 25
 
 
+def _build_google_credentials() -> Credentials:
+    """Build Google Credentials from path, raw JSON, or base64 JSON env vars."""
+    # 1) Existing behavior: file path in GOOGLE_SERVICE_ACCOUNT_JSON
+    path_or_json = (settings.google_service_account_json or "").strip()
+    if path_or_json:
+        # If the value looks like inline JSON, use it directly.
+        if path_or_json.startswith("{"):
+            try:
+                info = json.loads(path_or_json)
+                return Credentials.from_service_account_info(info, scopes=SCOPES)
+            except Exception as exc:
+                raise RuntimeError("Invalid inline GOOGLE_SERVICE_ACCOUNT_JSON value") from exc
+        return Credentials.from_service_account_file(path_or_json, scopes=SCOPES)
+
+    # 2) Optional raw JSON content var
+    raw_json = (getattr(settings, "google_service_account_json_content", "") or "").strip()
+    if raw_json:
+        try:
+            info = json.loads(raw_json)
+            return Credentials.from_service_account_info(info, scopes=SCOPES)
+        except Exception as exc:
+            raise RuntimeError("Invalid GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT value") from exc
+
+    # 3) Optional base64-encoded JSON
+    base64_json = (getattr(settings, "google_service_account_json_base64", "") or "").strip()
+    if base64_json:
+        try:
+            decoded = base64.b64decode(base64_json).decode("utf-8")
+            info = json.loads(decoded)
+            return Credentials.from_service_account_info(info, scopes=SCOPES)
+        except Exception as exc:
+            raise RuntimeError("Invalid GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 value") from exc
+
+    raise RuntimeError(
+        "Google credentials not configured. Set GOOGLE_SERVICE_ACCOUNT_JSON "
+        "(file path or inline JSON), GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT, "
+        "or GOOGLE_SERVICE_ACCOUNT_JSON_BASE64."
+    )
+
+
 class SheetsClient:
     """Thin wrapper around gspread for pipeline writes.
 
@@ -35,14 +77,10 @@ class SheetsClient:
     """
 
     def __init__(self) -> None:
-        if not settings.google_service_account_json:
-            raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON not set in .env")
         if not settings.google_master_sheet_id:
             raise RuntimeError("GOOGLE_MASTER_SHEET_ID not set in .env")
 
-        creds = Credentials.from_service_account_file(
-            settings.google_service_account_json, scopes=SCOPES
-        )
+        creds = _build_google_credentials()
         self._gc = gspread.authorize(creds)
         self._sheet = self._gc.open_by_key(settings.google_master_sheet_id)
         self._ws_cache: dict[str, gspread.Worksheet] = {}
@@ -55,9 +93,7 @@ class SheetsClient:
 
     def _reconnect(self) -> None:
         """Re-authenticate and reopen the sheet (resets stale connections)."""
-        creds = Credentials.from_service_account_file(
-            settings.google_service_account_json, scopes=SCOPES
-        )
+        creds = _build_google_credentials()
         self._gc = gspread.authorize(creds)
         self._sheet = self._gc.open_by_key(settings.google_master_sheet_id)
         self._ws_cache.clear()
