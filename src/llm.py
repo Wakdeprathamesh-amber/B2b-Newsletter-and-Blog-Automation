@@ -112,6 +112,7 @@ async def complete_json(
     max_tokens: int = 4000,
     temperature: float | None = None,
     timeout: float = 120.0,
+    context: dict | None = None,
 ):
     """Call the LLM and parse its response as JSON.
 
@@ -120,6 +121,7 @@ async def complete_json(
     
     Args:
         timeout: Request timeout in seconds (default: 120s)
+        context: Optional context dict for error logging
     """
     text = await complete(
         role=role,
@@ -127,6 +129,7 @@ async def complete_json(
         max_tokens=max_tokens,
         temperature=temperature,
         timeout=timeout,
+        context=context,
     )
     return extract_json(text)
 
